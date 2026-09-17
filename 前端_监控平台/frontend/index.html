@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>疫苗冷链温度监控系统</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);min-height:100vh;padding:20px;color:#e0e0e0}
+.container{max-width:1500px;margin:0 auto}
+.header{text-align:center;margin-bottom:25px}
+.header h1{font-size:34px;color:#fff;text-shadow:0 2px 10px rgba(0,200,255,0.3)}
+.header p{opacity:.7;font-size:14px;margin-top:6px}
+
+.toolbar{background:rgba(255,255,255,.06);border-radius:16px;padding:18px 22px;margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px)}
+.toolbar label{font-weight:600;font-size:13px}
+.toolbar input[type=number]{width:70px;padding:8px 10px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:rgba(255,255,255,.06);color:#fff;font-size:14px;text-align:center}
+.toolbar input:focus{outline:none;border-color:#00b4d8}
+.btn{padding:9px 20px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:all .25s;color:#fff}
+.btn-primary{background:linear-gradient(135deg,#0077b6,#00b4d8);box-shadow:0 4px 15px rgba(0,180,216,.3)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(0,180,216,.45)}
+.btn-danger{background:linear-gradient(135deg,#c0392b,#e74c3c);box-shadow:0 4px 15px rgba(231,76,60,.3)}
+.btn-danger:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(231,76,60,.45)}
+.btn-success{background:linear-gradient(135deg,#27ae60,#2ecc71)}
+.btn-outline{background:transparent;border:1px solid rgba(255,255,255,.2)}
+.btn-outline:hover{background:rgba(255,255,255,.08)}
+.btn-sm{padding:5px 12px;font-size:11px}
+
+.status-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px}
+.status-card{background:rgba(255,255,255,.06);border-radius:16px;padding:20px;display:flex;align-items:center;gap:16px;border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px)}
+.status-card.safe{border-left:4px solid #2ecc71}
+.status-card.warn{border-left:4px solid #f39c12}
+.status-card.danger{border-left:4px solid #e74c3c}
+.status-icon{font-size:36px;width:56px;height:56px;display:flex;align-items:center;justify-content:center;border-radius:50%}
+.status-card.safe .status-icon{background:rgba(46,204,113,.15)}
+.status-card.warn .status-icon{background:rgba(243,156,18,.15)}
+.status-card.danger .status-icon{background:rgba(231,76,60,.15)}
+.status-info{flex:1}
+.status-info .label{font-size:12px;opacity:.65}
+.status-info .value{font-size:36px;font-weight:bold}
+.status-card.safe .value{color:#2ecc71}
+.status-card.warn .value{color:#f39c12}
+.status-card.danger .value{color:#e74c3c}
+.status-info .desc{font-size:11px;opacity:.5}
+
+.section{background:rgba(255,255,255,.05);border-radius:16px;padding:22px;margin-bottom:20px;border:1px solid rgba(255,255,255,.08)}
+.section-title{font-size:18px;font-weight:bold;margin-bottom:18px;color:#fff;border-bottom:2px solid #00b4d8;padding-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+
+.temp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px}
+.temp-grid::-webkit-scrollbar{width:6px}
+.temp-grid::-webkit-scrollbar-track{background:rgba(255,255,255,.02);border-radius:3px}
+.temp-grid::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+.temp-grid::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.25)}
+.temp-card{background:rgba(255,255,255,.07);border-radius:16px;padding:22px;border:1px solid rgba(255,255,255,.08);transition:all .3s;position:relative;overflow:hidden}
+.temp-card:hover{transform:translateY(-4px);box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.temp-card.normal{border-left:5px solid #2ecc71}
+.temp-card.warning{border-left:5px solid #f39c12}
+.temp-card.danger{border-left:5px solid #e74c3c;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 20px rgba(231,76,60,.1)}50%{box-shadow:0 0 40px rgba(231,76,60,.35)}}
+.temp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.temp-label{font-size:18px;font-weight:bold;color:#fff;display:flex;align-items:center;gap:8px}
+.temp-label .tag-badge{font-size:10px;padding:2px 8px;border-radius:12px;background:rgba(0,180,216,.2);color:#00b4d8}
+.temp-time{font-size:12px;opacity:.5;background:rgba(255,255,255,.05);padding:4px 10px;border-radius:12px}
+.temp-value{font-size:56px;font-weight:bold;text-align:center;margin:20px 0}
+.temp-value.normal{color:#2ecc71}
+.temp-value.warning{color:#f39c12}
+.temp-value.danger{color:#e74c3c}
+.temp-status{text-align:center;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600}
+.temp-status.normal{background:rgba(46,204,113,.15);color:#2ecc71}
+.temp-status.warning{background:rgba(243,156,18,.15);color:#f39c12}
+.temp-status.danger{background:rgba(231,76,60,.15);color:#e74c3c}
+
+.temp-vaccine-info{margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;opacity:.7;line-height:1.6}
+.temp-vaccine-info .v-name{color:#00b4d8;font-weight:600}
+.temp-vaccine-info .v-expired{color:#e74c3c}
+
+.card-actions{display:flex;gap:8px;margin-top:12px}
+
+.chart-container{width:100%;height:380px}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.stat-item{background:rgba(255,255,255,.05);padding:14px;border-radius:10px;text-align:center}
+.stat-value{font-size:26px;font-weight:bold;color:#00b4d8}
+.stat-label{font-size:11px;opacity:.5;margin-top:4px}
+
+.vaccine-list-item{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:rgba(255,255,255,.04);border-radius:10px;margin-bottom:10px;gap:12px;flex-wrap:wrap}
+.vaccine-list-item .info{flex:1}
+.vaccine-list-item .info strong{color:#00b4d8}
+.vaccine-list-item .meta{font-size:12px;opacity:.6;margin-top:4px}
+
+.tag-list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(255,255,255,.04);border-radius:8px;margin-bottom:8px}
+.tag-list-item.disabled{opacity:.4}
+.tag-list-item .tag-name{font-weight:600}
+
+.alert-list{max-height:350px;overflow-y:auto}
+.alert-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:8px;margin-bottom:8px;gap:12px}
+.alert-item.danger{background:rgba(231,76,60,.12);border-left:3px solid #e74c3c}
+.alert-item.warning{background:rgba(243,156,18,.12);border-left:3px solid #f39c12}
+.alert-item.offline{background:rgba(52,152,219,.12);border-left:3px solid #3498db}
+.alert-item.confirmed{opacity:.4}
+.alert-time{font-size:11px;opacity:.5}
+.alert-type-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;margin-right:6px}
+.alert-type-badge.temperature{background:rgba(231,76,60,.2);color:#e74c3c}
+.alert-type-badge.offline_retransmit{background:rgba(52,152,219,.2);color:#3498db}
+
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:2000;align-items:center;justify-content:center}
+.modal.show{display:flex}
+.modal-content{background:#1a2a35;border-radius:16px;padding:28px;width:92%;max-width:560px;max-height:85vh;overflow-y:auto;border:1px solid rgba(255,255,255,.1);color:#e0e0e0}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-title{font-size:20px;font-weight:bold;color:#fff}
+.close-btn{font-size:28px;cursor:pointer;opacity:.5;transition:opacity .2s}
+.close-btn:hover{opacity:1}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;margin-bottom:5px;font-weight:500;font-size:13px;opacity:.8}
+.form-group input,.form-group select{width:100%;padding:10px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:rgba(255,255,255,.06);color:#fff;font-size:14px}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:#00b4d8}
+.form-row{display:flex;gap:12px}
+.form-row .form-group{flex:1}
+.form-group select option{background:#1a2a35;color:#fff}
+
+.connection-status{position:fixed;top:16px;right:16px;padding:6px 14px;border-radius:16px;font-size:12px;font-weight:600;z-index:1000}
+.connection-status.online{background:rgba(46,204,113,.2);color:#2ecc71;border:1px solid rgba(46,204,113,.3)}
+.connection-status.offline{background:rgba(231,76,60,.2);color:#e74c3c;border:1px solid rgba(231,76,60,.3)}
+
+.tabs{display:flex;gap:8px;margin-bottom:16px}
+.tab{padding:8px 18px;background:rgba(255,255,255,.04);border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:#ccc;transition:all .2s}
+.tab.active{background:#00b4d8;color:#fff}
+.tab:hover:not(.active){background:rgba(255,255,255,.08)}
+
+.chart-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px;font-size:13px}
+.chart-toolbar select,.chart-toolbar input{padding:6px 10px;border:1px solid rgba(255,255,255,.15);border-radius:6px;background:rgba(255,255,255,.06);color:#fff;font-size:12px}
+
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:rgba(255,255,255,.03)}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
+
+.vaccine-tag-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.vaccine-tag-row .tag-chip{padding:4px 12px;border-radius:14px;font-size:12px;background:rgba(0,180,216,.15);color:#00b4d8;cursor:pointer;transition:all .2s}
+.vaccine-tag-row .tag-chip:hover{background:rgba(0,180,216,.25)}
+.vaccine-tag-row .tag-chip.active{background:#00b4d8;color:#fff}
+
+.map-container{width:100%;height:350px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.1)}
+.map-container .leaflet-control-zoom a{background:#1a2a35;color:#fff;border-color:rgba(255,255,255,.2)}
+.location-info{display:flex;gap:16px;align-items:center;padding:12px 16px;background:rgba(255,255,255,.04);border-radius:10px;margin-bottom:12px;font-size:13px}
+.location-info .loc-label{opacity:.6}
+.location-info .loc-value{color:#00b4d8;font-weight:600}
+.location-info .loc-time{opacity:.4;font-size:11px;margin-left:auto}
+</style>
+</head>
+<body>
+<div class="connection-status online" id="connectionStatus">🟢 在线</div>
+
+<div class="container">
+  <div class="header">
+    <h1>💉 疫苗冷链温度监控系统</h1>
+    <p>实时监控 · 异常预警 · 合规追溯 · 疫苗管理</p>
+  </div>
+
+  <!-- 工具栏 -->
+  <div class="toolbar">
+    <label>温度阈值：</label>
+    <span style="font-size:12px">最低</span>
+    <input type="number" id="minThreshold" value="2" step="0.5">
+    <span style="font-size:12px">°C</span>
+    <span style="font-size:12px;margin-left:6px">最高</span>
+    <input type="number" id="maxThreshold" value="8" step="0.5">
+    <span style="font-size:12px">°C</span>
+    <button class="btn btn-success" onclick="confirmThresholds()">✅ 确认</button>
+    <span style="flex:1"></span>
+    <button class="btn btn-primary" onclick="refreshData()">🔄 刷新</button>
+    <button class="btn btn-outline" onclick="exportAllData()">📥 导出Excel</button>
+    <button class="btn btn-outline" onclick="showTagManager()">🏷️ 管理标签</button>
+    <button class="btn btn-danger" onclick="showAlerts()" id="alertBtn">🔔 报警 (0)</button>
+    <span id="userArea"></span>
+    <button class="btn btn-outline btn-sm" onclick="openAdminPage()" id="adminBtn" title="后台管理" style="display:none">⚙️ 后台</button>
+  </div>
+
+  <!-- 当前责任人 -->
+  <div id="responsibleBar" style="display:none;padding:10px 16px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);border-radius:10px;margin-bottom:12px;align-items:center;gap:12px;font-size:13px">
+    <span style="opacity:.6">👤 当前值班责任人：</span>
+    <span id="responsibleName" style="color:#00b4d8;font-weight:600"></span>
+    <span id="responsibleDuty" style="opacity:.7"></span>
+    <span id="responsibleDesc" style="opacity:.5;font-size:11px;margin-left:auto"></span>
+  </div>
+
+  <!-- 冷链合规看板 -->
+  <div class="status-row">
+    <div class="status-card safe">
+      <div class="status-icon">✅</div>
+      <div class="status-info">
+        <div class="label">冷链正常</div>
+        <div class="value" id="safeCount">0</div>
+        <div class="desc">在阈值范围内</div>
+      </div>
+    </div>
+    <div class="status-card warn">
+      <div class="status-icon">⚠️</div>
+      <div class="status-info">
+        <div class="label">温度预警</div>
+        <div class="value" id="warningCount">0</div>
+        <div class="desc">接近阈值 ±1°C</div>
+      </div>
+    </div>
+    <div class="status-card danger">
+      <div class="status-icon">❌</div>
+      <div class="status-info">
+        <div class="label">温度异常</div>
+        <div class="value" id="dangerCount">0</div>
+        <div class="desc">超出阈值范围</div>
+      </div>
+    </div>
+    <div class="status-card" style="border-left:4px solid #00b4d8">
+      <div class="status-icon" style="background:rgba(0,180,216,.15)">🏷️</div>
+      <div class="status-info">
+        <div class="label">在管标签</div>
+        <div class="value" style="color:#00b4d8" id="tagCount">0</div>
+        <div class="desc">已启用标签</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 温度卡片 -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <input type="text" id="tagSearchInput" placeholder="🔍 搜索标签（名称/批次/厂商/位置），支持模糊查询" style="flex:1;padding:10px 14px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(255,255,255,.05);color:#fff;font-size:14px" oninput="applyTagFilter()">
+    <button class="btn btn-outline btn-sm" onclick="clearTagFilter()">清除</button>
+  </div>
+  <div class="temp-grid" id="tempGrid" style="max-height:520px;overflow-y:auto">
+    <div class="temp-card"><div style="text-align:center;padding:50px;opacity:.4">加载中...</div></div>
+  </div>
+
+  <!-- 地图定位 -->
+  <div class="section" style="margin-top:20px">
+    <div class="section-title">
+      <span>🗺️ 设备定位 & 轨迹</span>
+      <button class="btn btn-outline btn-sm" onclick="loadLocationData()">🔄 刷新</button>
+    </div>
+    <div class="location-info" id="locationInfo">
+      <span class="loc-label">📍 当前位置：</span>
+      <span class="loc-value" id="locCoord">等待定位数据...</span>
+      <span class="loc-value" id="locAddr" style="margin-left:12px"></span>
+      <span class="loc-time" id="locTime"></span>
+    </div>
+    <div id="mapContainer" class="map-container"></div>
+    <div id="routeStats" style="margin-top:8px;font-size:12px;opacity:.5;text-align:center"></div>
+  </div>
+
+  <!-- 历史曲线 -->
+  <div class="section">
+    <div class="section-title">📊 温度历史曲线</div>
+    <div class="chart-toolbar">
+      <label>数据范围：</label>
+      <input type="datetime-local" id="chartStartTime" step="1" onchange="if(document.getElementById('chartStartTime').value&&document.getElementById('chartEndTime').value)applyChartRange()" style="padding:4px 8px;border:1px solid rgba(255,255,255,.15);border-radius:6px;background:rgba(255,255,255,.06);color:#fff;font-size:12px">
+      <span style="opacity:.5">~</span>
+      <input type="datetime-local" id="chartEndTime" step="1" onchange="if(document.getElementById('chartStartTime').value&&document.getElementById('chartEndTime').value)applyChartRange()" style="padding:4px 8px;border:1px solid rgba(255,255,255,.15);border-radius:6px;background:rgba(255,255,255,.06);color:#fff;font-size:12px">
+      <button class="btn btn-primary btn-sm" onclick="applyChartRange()">🔍 筛选</button>
+      <button class="btn btn-outline btn-sm" onclick="resetChartRange()">清除</button>
+      <span id="dataCountInfo" style="margin-left:auto;opacity:.5;font-size:12px"></span>
+    </div>
+    <div class="tabs" id="chartTabs">
+      <button class="tab active" data-tab="all">全部</button>
+    </div>
+    <div id="historyChart" class="chart-container"></div>
+  </div>
+
+  <!-- 统计分析 & 标签管理 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div class="section">
+      <div class="section-title">📈 统计分析</div>
+      <div class="stats-grid" id="statsGrid"><div class="stat-item"><div class="stat-value">--</div><div class="stat-label">等待数据</div></div></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🏷️ 标签信息管理</div>
+        <button class="btn btn-outline btn-sm" onclick="showTagManager()">➕ 添加标签</button>
+      </div>
+      <div id="tagInfoList" style="max-height:300px;overflow-y:auto">暂无标签</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== MODALS ========== -->
+
+<!-- 报警 -->
+<div class="modal" id="alertModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">🔔 报警记录</div>
+      <div style="display:flex;gap:6px">
+        <select id="alertTypeFilter" onchange="showAlerts()" style="padding:4px 8px;border:1px solid rgba(255,255,255,.15);border-radius:6px;background:rgba(255,255,255,.06);color:#fff;font-size:11px">
+          <option value="">全部类型</option>
+          <option value="temperature">🌡️ 温度阈值报警</option>
+          <option value="offline_retransmit">📡 断网数据重传</option>
+        </select>
+        <span class="close-btn" onclick="closeModal('alertModal')">&times;</span>
+      </div>
+    </div>
+    <div class="alert-list" id="alertList"></div>
+    <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+      <button class="btn btn-outline btn-sm" onclick="clearConfirmedAlerts()" id="clearAlertsBtn" style="color:#e74c3c;border-color:#e74c3c">🗑️ 清理已确认报警</button>
+      <button class="btn btn-danger" onclick="confirmAllAlerts()">全部确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 疫苗信息 
+<div class="modal" id="vaccineModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" id="vaccineModalTitle">💊 疫苗信息</div>
+      <span class="close-btn" onclick="closeModal('vaccineModal')">&times;</span>
+    </div>
+    <div class="form-group">
+      <label>绑定温度标签</label>
+      <select id="vaccineTagKey"></select>
+    </div>
+    <div class="form-group">
+      <label>疫苗名称 *</label>
+      <input type="text" id="vaccineName" placeholder="如：重组新冠疫苗">
+    </div>
+    <div class="form-group">
+      <label>生产厂商</label>
+      <input type="text" id="vaccineManufacturer" placeholder="如：国药集团">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>批次号</label>
+        <input type="text" id="vaccineBatch" placeholder="如：B2024001">
+      </div>
+      <div class="form-group">
+        <label>存储位置</label>
+        <input type="text" id="vaccineLocation" placeholder="如：冷库A区-货架3">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>有效期开始</label>
+        <input type="date" id="vaccineExpiryStart">
+      </div>
+      <div class="form-group">
+        <label>有效期结束</label>
+        <input type="date" id="vaccineExpiryEnd">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>存储温度要求(°C)</label>
+      <div class="form-row">
+        <input type="number" id="vaccineTempMin" placeholder="最低" step="0.5">
+        <input type="number" id="vaccineTempMax" placeholder="最高" step="0.5">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>备注</label>
+      <input type="text" id="vaccineNotes" placeholder="可选">
+    </div>
+    <button class="btn btn-primary" onclick="saveVaccineInfo()" style="width:100%">💾 保存</button>
+    <button class="btn btn-danger btn-sm" id="vaccineDeleteBtn" onclick="deleteVaccineInfo()" style="width:100%;margin-top:8px;display:none">🗑️ 删除此疫苗信息</button>
+  </div>
+</div>
+end -->
+
+<!-- 温度标签管理 -->
+<div class="modal" id="tagModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" id="tagModalTitle">➕ 添加标签</div>
+      <span class="close-btn" onclick="closeModal('tagModal')">&times;</span>
+    </div>
+    <input type="hidden" id="editingTagKey" value="">
+    <div class="form-row">
+      <div class="form-group">
+        <label>标签 key *</label>
+        <input type="text" id="newTagKey" placeholder="如：sensor_5">
+      </div>
+      <div class="form-group">
+        <label>显示名称/疫苗名称 *</label>
+        <input type="text" id="newTagLabel" placeholder="如：重组新冠疫苗">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>生产厂商</label>
+        <input type="text" id="newTagManufacturer" placeholder="如：国药集团">
+      </div>
+      <div class="form-group">
+        <label>批次号</label>
+        <input type="text" id="newTagBatch" placeholder="如：B2024001">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>温度下限 (°C)</label>
+        <input type="number" id="newTagTempMin" step="0.1" placeholder="默认 2">
+      </div>
+      <div class="form-group">
+        <label>温度上限 (°C)</label>
+        <input type="number" id="newTagTempMax" step="0.1" placeholder="默认 8">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>有效期开始</label>
+        <input type="datetime-local" id="newTagExpiryStart" step="1">
+      </div>
+      <div class="form-group">
+        <label>有效期结束</label>
+        <input type="datetime-local" id="newTagExpiryEnd" step="1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>存储位置</label>
+      <input type="text" id="newTagLocation" placeholder="如：冷库A区-货架3">
+    </div>
+    <button class="btn btn-primary" onclick="saveTag()" style="width:100%">💾 保存</button>
+    <div id="tagModalDeleteArea" style="display:none;text-align:center;margin-top:10px">
+      <button class="btn btn-danger btn-sm" onclick="deleteTagInModal()">🗑️ 删除此标签</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let prevTemps = {};
+let temperatureTags = {};
+let alerts = [];
+let allDataCache = [];
+let currentChartTab = 'all';
+let historyChart = null;
+let authToken = localStorage.getItem('authToken') || '';
+let authRole = localStorage.getItem('authRole') || '';
+let authUsername = localStorage.getItem('authUsername') || '';
+let sseRetryTimer = null;
+
+function isLoggedIn() { return !!authToken; }
+function isAdmin() { return authRole === 'admin' || authRole === 'super_admin'; }
+function authHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  if (authToken) h['X-Auth-Token'] = authToken;
+  return h;
+}
+
+function checkAuth() {
+  if (!isLoggedIn()) {
+    // 验证本地 token 是否还有效
+    fetch('/api/auth/me', { headers: authHeaders() })
+      .then(r => { if (r.status === 401) throw 'expired'; return r.json(); })
+      .then(d => {
+        if (!d.success) throw 'invalid';
+      })
+      .catch(() => {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authRole');
+        localStorage.removeItem('authUsername');
+        authToken = ''; authRole = ''; authUsername = '';
+        location.href = 'login.html?redirect=' + encodeURIComponent(location.pathname.split('/').pop() || 'index.html');
+      });
+  }
+}
+
+function updateUserArea() {
+  const area = document.getElementById('userArea');
+  const adminBtn = document.getElementById('adminBtn');
+  if (isLoggedIn()) {
+    const badge = isAdmin() ? '管理员' : '用户';
+    area.innerHTML = `<span style="font-size:12px;padding:4px 10px;border-radius:12px;background:rgba(46,204,113,.15);color:#2ecc71;margin-right:4px">👤 ${authUsername} · ${badge}</span>
+      <button class="btn btn-outline btn-sm" onclick="doLogout()">退出</button>`;
+    if (isAdmin()) adminBtn.style.display = 'inline-block';
+    else adminBtn.style.display = 'none';
+  }
+}
+
+function showLogin() {
+  location.href = 'login.html?redirect=' + encodeURIComponent('index.html');
+}
+
+async function doLogin() {
+  // 已废弃，改用 login.html 独立页面
+  showLogin();
+}
+
+async function doLogout() {
+  try { await fetch('/api/auth/logout', { method:'POST', headers:authHeaders() }); } catch(e) {}
+  authToken = ''; authRole = ''; authUsername = '';
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('authRole');
+  localStorage.removeItem('authUsername');
+  try { closeModal('adminLogModal'); } catch(e) {}
+  location.href = 'login.html';
+}
+
+function openAdminPage() {
+  window.open('admin.html', '_blank');
+}
+
+// ---- 温度判断 ----
+function getThresholds() {
+  const min = parseFloat(document.getElementById('minThreshold').value) || 2;
+  const max = parseFloat(document.getElementById('maxThreshold').value) || 8;
+  return { min, max };
+}
+function getStatus(temp) {
+  const { min, max } = getThresholds();
+  if (temp < min || temp > max) return 'danger';
+  if (temp < min+0.5 || temp > max-0.5) return 'warning';
+  return 'normal';
+}
+async function confirmThresholds() {
+  const min = parseFloat(document.getElementById('minThreshold').value) || 2;
+  const max = parseFloat(document.getElementById('maxThreshold').value) || 8;
+  if (!isLoggedIn()) { alert('请先登录'); return; }
+  try {
+    const r = await fetch('/api/temperature/thresholds', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ temp_min: min, temp_max: max })
+    });
+    const d = await r.json();
+    if (d.success) {
+      alert(`已应用阈值: ${min}°C ~ ${max}°C，报警范围已更新`);
+      // 固定输入框为确认后的值
+      document.getElementById('minThreshold').value = min;
+      document.getElementById('maxThreshold').value = max;
+      refreshData();
+    } else {
+      alert('更新失败: ' + (d.error || '未知错误'));
+    }
+  } catch(e) { alert('更新失败: ' + e.message); }
+}
+
+// 从后端标签数据恢复阈值
+function initThresholdsFromTags() {
+  const tags = Object.values(temperatureTags).filter(t => t.temp_min != null && t.temp_max != null);
+  if (tags.length > 0) {
+    document.getElementById('minThreshold').value = tags[0].temp_min || 2;
+    document.getElementById('maxThreshold').value = tags[0].temp_max || 8;
+  }
+}
+function getTrend(key, t) {
+  if (!prevTemps[key]) return '→';
+  if (t > prevTemps[key]) return '↑';
+  if (t < prevTemps[key]) return '↓';
+  return '→';
+}
+function statusText(s) { return s==='normal'?'✅ 正常':s==='warning'?'⚠️ 接近阈值':'❌ 温度异常'; }
+
+// ---- 加载标签 ----
+async function loadTags() {
+  try {
+    const r = await fetch('/api/temperature/tags?enabled=true');
+    const d = await r.json();
+    if (d.success) {
+      if (Array.isArray(d.data)) {
+        temperatureTags = {};
+        d.data.forEach(t => { temperatureTags[t.key] = t; });
+      } else {
+        temperatureTags = d.data;
+      }
+      buildChartTabs();
+    }
+  } catch(e) { console.error('加载标签失败',e); }
+}
+
+function getEnabledTagKeys() {
+  const tags = Object.values(temperatureTags)
+    .filter(t => t.enabled !== false)
+    .sort((a,b) => (a.order||0)-(b.order||0))
+    .map(t => t.key);
+  return tags;
+}
+
+function getTagLabel(key) {
+  return (temperatureTags[key] && temperatureTags[key].label) || key;
+}
+
+// ---- 主刷新（轻量：仅加载最新 100 条） ----
+const CACHE_KEY = 'temperature_cache_data';
+const CACHE_TIME_KEY = 'temperature_cache_time';
+const CACHE_MAX_AGE_MS = 5 * 60 * 1000; // 5分钟缓存有效期
+
+function saveCache() {
+  try {
+    if (allDataCache.length > 0) {
+      localStorage.setItem(CACHE_KEY, JSON.stringify(allDataCache));
+      localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+    }
+  } catch(e) { /* 缓存满则静默失败 */ }
+}
+
+let _saveCacheTimer = null;
+function saveCacheDebounced() {
+  clearTimeout(_saveCacheTimer);
+  _saveCacheTimer = setTimeout(saveCache, 3000);
+}
+
+function loadCache() {
+  try {
+    const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
+    if (!cachedTime) return null;
+    const age = Date.now() - parseInt(cachedTime);
+    if (age > CACHE_MAX_AGE_MS) {
+      localStorage.removeItem(CACHE_KEY);
+      localStorage.removeItem(CACHE_TIME_KEY);
+      return null;
+    }
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+async function refreshData(limit = 10000) {
+  try {
+    const res = await fetch(`/api/temperature/latest?limit=${limit}`);
+    const result = await res.json();
+    document.getElementById('connectionStatus').className = 'connection-status online';
+    document.getElementById('connectionStatus').innerHTML = '🟢 在线';
+    if (result.success && result.data.length > 0) {
+      allDataCache = result.data;
+      const latest = result.data[0];
+      const displayData = getDisplayData(result.data);
+      renderCards(latest, displayData);
+      updateChart(displayData);
+      updateStats(displayData);
+      updateStatusCount(latest);
+      updateResponsibleDisplay(latest);
+      const dc = document.getElementById('dataCountInfo');
+      if (dc) dc.textContent = `显示 ${displayData.length} 条 / 已加载 ${result.data.length} 条`;
+      saveCache();
+    } else {
+      document.getElementById('tempGrid').innerHTML = '<div class="temp-card"><div style="text-align:center;padding:50px;opacity:.4">⏳ 等待 IoTDA 数据推送...</div></div>';
+      if (historyChart) { historyChart.clear(); }
+      document.getElementById('safeCount').textContent = '0';
+      document.getElementById('warningCount').textContent = '0';
+      document.getElementById('dangerCount').textContent = '0';
+    }
+    await loadAlerts();
+    renderTagInfoList();
+  } catch(e) {
+    console.error('刷新失败', e);
+    document.getElementById('connectionStatus').className = 'connection-status offline';
+    document.getElementById('connectionStatus').innerHTML = '🔴 离线';
+  }
+}
+
+// 后台懒加载剩余数据
+async function lazyLoadRemaining() {
+  if (window._lazyLoaded) return;
+  try {
+    const res = await fetch('/api/temperature/latest?limit=10000');
+    const result = await res.json();
+    if (result.success && result.data.length > allDataCache.length) {
+      allDataCache = result.data;
+      const dc = document.getElementById('dataCountInfo');
+      if (dc) dc.textContent = `${getDisplayData(allDataCache).length} 条 / 已加载 ${result.data.length} 条`;
+      // 如果当前图表是单传感器 tab，只更新统计数据
+      updateStats(getDisplayData(allDataCache));
+    }
+    window._lazyLoaded = true;
+  } catch(e) { /* 静默失败 */ }
+}
+
+// 加载历史范围数据
+async function loadHistoryData(startTime, endTime) {
+  window._lazyLoaded = true;
+  try {
+    const params = new URLSearchParams();
+    if (startTime) params.set('startTime', startTime);
+    if (endTime) params.set('endTime', endTime);
+    const res = await fetch(`/api/temperature/history?${params}`);
+    const result = await res.json();
+    if (result.success && result.data.length > 0) {
+      allDataCache = result.data;
+      const displayData = getDisplayData(result.data);
+      renderCards(result.data[0], displayData);
+      updateChart(displayData);
+      updateStats(displayData);
+      const dc = document.getElementById('dataCountInfo');
+      if (dc) dc.textContent = `显示 ${displayData.length} 条 / 共 ${result.data.length} 条（历史数据）`;
+    } else {
+      const dc = document.getElementById('dataCountInfo');
+      if (dc) dc.textContent = '无历史数据';
+    }
+  } catch(e) {
+    console.error('加载历史数据失败', e);
+  }
+}
+
+// SSE 实时推送
+function connectSSE() {
+  if (window._sse) { window._sse.close(); }
+  const es = new EventSource('/api/sse/events');
+  window._sse = es;
+
+  es.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'connected') {
+        console.log('SSE 已连接');
+        document.getElementById('connectionStatus').className = 'connection-status online';
+        document.getElementById('connectionStatus').innerHTML = '🟢 在线 (实时)';
+      } else if (msg.type === 'temperature') {
+        // 追加新数据到缓存头部
+        const newRecord = {
+          device_id: '69fd9d23cbb0cf6bb958c9d0_YUESE001',
+          sensor_id: 'temperature',
+          timestamp: msg.timestamp,
+          lianwang: msg.lianwang,
+          ...(msg.temperatures || {})
+        };
+        allDataCache.unshift(newRecord);
+        if (allDataCache.length > 10000) allDataCache = allDataCache.slice(0, 10000);
+        const displayData = getDisplayData(allDataCache);
+        renderCards(allDataCache[0], displayData);
+        updateChart(displayData);
+        updateStats(displayData);
+        updateStatusCount(allDataCache[0]);
+        updateResponsibleDisplay(allDataCache[0]);
+        loadAlerts();
+        saveCacheDebounced();
+      } else if (msg.type === 'location') {
+        // 位置更新
+        updateLocationDisplay(msg);
+        addMapMarker(msg);
+      }
+    } catch (ex) {}
+  };
+
+  es.onerror = () => {
+    document.getElementById('connectionStatus').innerHTML = '🟡 轮询中';
+    es.close();
+    // 回退到轮询
+    if (sseRetryTimer) clearInterval(sseRetryTimer);
+    sseRetryTimer = setInterval(refreshData, 10000);
+    // 5 秒后重试 SSE
+    setTimeout(connectSSE, 5000);
+  };
+}
+
+// 责任人信息更新
+async function updateResponsibleDisplay(latestData) {
+  if (!latestData) return;
+  let zeren = null;
+  if (latestData.zeren != null) {
+    zeren = latestData.zeren;
+  } else if (latestData.raw_data) {
+    const raw = latestData.raw_data;
+    const services = (raw.notify_data && raw.notify_data.body && raw.notify_data.body.services) || (raw.body && raw.body.services) || raw.services;
+    if (services && services.length > 0) {
+      const props = services[0].properties || {};
+      if (props.zeren != null) zeren = props.zeren;
+    }
+  }
+  if (zeren == null || zeren === 0) {
+    document.getElementById('responsibleBar').style.display = 'none';
+    return;
+  }
+  try {
+    const r = await fetch('/api/admin/responsible/' + zeren);
+    const d = await r.json();
+    if (d.success && d.data) {
+      document.getElementById('responsibleBar').style.display = 'flex';
+      document.getElementById('responsibleName').textContent = d.data.username || '编号' + zeren;
+      document.getElementById('responsibleDuty').textContent = d.data.duty ? '· ' + d.data.duty : '';
+      document.getElementById('responsibleDesc').textContent = d.data.responsibility ? '职责：' + d.data.responsibility : '';
+    } else {
+      document.getElementById('responsibleBar').style.display = 'none';
+    }
+  } catch(e) {
+    document.getElementById('responsibleBar').style.display = 'none';
+  }
+}
+
+function updateStatusCount(latest) {
+  const keys = getEnabledTagKeys();
+  let safe=0, warn=0, danger=0;
+  keys.forEach(k => {
+    const v = latest[k];
+    if (v != null) {
+      const s = getStatus(v);
+      if (s==='normal') safe++;
+      else if (s==='warning') warn++;
+      else danger++;
+    }
+  });
+  document.getElementById('safeCount').textContent = safe;
+  document.getElementById('warningCount').textContent = warn;
+  document.getElementById('dangerCount').textContent = danger;
+}
+
+// ---- 数据范围 ----
+function normalizeTime(val) {
+  if (!val) return null;
+  // datetime-local step=1 值格式: 2026-06-27T10:00:00
+  // 需要转为 ISO 8601: 2026-06-27T10:00:00.000Z
+  if (val.includes('Z')) return val;
+  // 不带秒时补 :00
+  if (val.split(':').length === 2) val += ':00';
+  return val + '.000Z';
+}
+
+function getChartTimeRange() {
+  const s = document.getElementById('chartStartTime').value;
+  const e = document.getElementById('chartEndTime').value;
+  if (s && e) {
+    return { startTime: normalizeTime(s), endTime: normalizeTime(e) };
+  }
+  return null;
+}
+
+function getDisplayData(allData) {
+  const range = getChartTimeRange();
+  if (!range) return allData; // 无筛选时显示全部（缓存中的数据）
+  const ss = new Date(range.startTime).getTime();
+  const ee = new Date(range.endTime).getTime();
+  return allData.filter(d => { const t = new Date(d.timestamp).getTime(); return t >= ss && t <= ee; });
+}
+
+function applyChartRange() {
+  const range = getChartTimeRange();
+  if (range) {
+    loadHistoryData(range.startTime, range.endTime);
+  } else {
+    alert('请选择开始和结束时间');
+  }
+}
+
+function resetChartRange() {
+  document.getElementById('chartStartTime').value = '';
+  document.getElementById('chartEndTime').value = '';
+  refreshData(); // 清除后回到默认全量
+}
+
+// ---- 标签搜索过滤 ----
+let tagSearchQuery = '';
+
+function getTagInfo(key) {
+  const t = temperatureTags[key] || {};
+  return (t.label || '') + ' | ' + (t.manufacturer || '') + ' | ' + (t.batch || '') + ' | ' + (t.location || '');
+}
+
+function getFilteredTagKeys() {
+  const keys = getEnabledTagKeys();
+  if (!tagSearchQuery) return keys;
+  const q = tagSearchQuery.toLowerCase();
+  return keys.filter(k => getTagInfo(k).toLowerCase().includes(q));
+}
+
+function applyTagFilter() {
+  tagSearchQuery = document.getElementById('tagSearchInput').value.trim().toLowerCase();
+  if (allDataCache.length > 0) {
+    renderCards(allDataCache[0], getDisplayData(allDataCache));
+    updateStatusCount(allDataCache[0]);
+  }
+}
+
+function clearTagFilter() {
+  document.getElementById('tagSearchInput').value = '';
+  tagSearchQuery = '';
+  if (allDataCache.length > 0) {
+    renderCards(allDataCache[0], getDisplayData(allDataCache));
+    updateStatusCount(allDataCache[0]);
+  }
+}
+
+// ---- 卡片渲染 ----
+function renderCards(latest, historyData) {
+  const grid = document.getElementById('tempGrid');
+  const keys = getFilteredTagKeys();
+  if (keys.length === 0) {
+    grid.innerHTML = '<div class="temp-card"><div style="text-align:center;padding:50px;opacity:.4">' + (tagSearchQuery ? '无匹配标签' : '暂无温度标签，请先添加') + '</div></div>';
+    return;
+  }
+  grid.innerHTML = keys.map(key => {
+    const val = latest[key];
+    if (val == null) return '';
+    const status = getStatus(val);
+    const trend = getTrend(key, val);
+    prevTemps[key] = val;
+    const history = historyData.map(d => d[key]).filter(t => t != null);
+    const label = getTagLabel(key);
+    const displayName = label;
+    const isOffline = latest.lianwang === 0;
+    const networkStatusBadge = isOffline ? '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:rgba(231,76,60,.2);color:#e74c3c;margin-left:8px">断网补传</span>' : '';
+
+    return `<div class="temp-card ${status}">
+      <div class="temp-header">
+        <div class="temp-label">${displayName} <span class="tag-badge">${key}</span>${networkStatusBadge}</div>
+        <div class="temp-time">${new Date(latest.timestamp).toLocaleTimeString('zh-CN')}</div>
+      </div>
+      <div class="temp-value ${status}">${val.toFixed(1)}°C ${trend}</div>
+      <div class="temp-status ${status}">${statusText(status)}</div>
+      <div class="card-actions">
+        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();exportSingle('${key}')">📥 导出</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ---- 图表 ----
+function buildChartTabs() {
+  const container = document.getElementById('chartTabs');
+  const keys = getEnabledTagKeys();
+  let html = '';
+  keys.forEach((k, i) => {
+    html += `<button class="tab${i === 0 ? ' active' : ''}" data-tab="${k}">${getTagLabel(k)}</button>`;
+  });
+  container.innerHTML = html;
+  // 默认选中第一个传感器
+  if (keys.length > 0) currentChartTab = keys[0];
+  container.querySelectorAll('.tab').forEach(tab => {
+    tab.onclick = function() {
+      container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      currentChartTab = this.dataset.tab;
+      if (allDataCache.length > 0) updateChart(getDisplayData(allDataCache));
+    };
+  });
+}
+
+function updateChart(data) {
+  if (!data || data.length === 0) {
+    if (historyChart) historyChart.clear();
+    return;
+  }
+  if (!historyChart) historyChart = echarts.init(document.getElementById('historyChart'));
+  const reversed = data.slice().reverse();
+  const times = reversed.map(d => {
+    const dt = new Date(d.timestamp);
+    return dt.toLocaleDateString('zh-CN') + ' ' + dt.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  });
+  let series = [];
+  const {min,max} = getThresholds();
+  
+  const dataPoints = reversed.map((d, idx) => {
+    if (d[currentChartTab] != null) {
+      return {
+        value: d[currentChartTab],
+        itemStyle: d.lianwang === 0 ? { color: '#e74c3c' } : undefined
+      };
+    }
+    return null;
+  });
+  series = [{ 
+    name: getTagLabel(currentChartTab), 
+    type: 'line', 
+    smooth: true, 
+    areaStyle: { color: 'rgba(0,180,216,.15)' }, 
+    data: dataPoints,
+    markPoint: {
+      data: reversed
+        .filter(d => d.lianwang === 0 && d[currentChartTab] != null)
+        .map((d, idx) => {
+          const dt = new Date(d.timestamp);
+          return {
+            coord: [dt.toLocaleDateString('zh-CN') + ' ' + dt.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}), d[currentChartTab]],
+            name: '断网数据',
+            symbol: 'circle',
+            symbolSize: 12,
+            itemStyle: { color: '#e74c3c' },
+            label: { show: true, formatter: '断', color: '#fff', fontSize: 11 }
+          };
+        })
+    }
+  }];
+  historyChart.setOption({
+    tooltip: { 
+      trigger: 'axis',
+      formatter: function(params) {
+        let result = params[0].axisValue + '<br/>';
+        params.forEach(param => {
+          const idx = data.length - 1 - params.indexOf(param);
+          const dataItem = reversed[params.indexOf(param)];
+          const offlineMark = dataItem && dataItem.lianwang === 0 ? ' <span style="color:#e74c3c">[断网数据]</span>' : '';
+          result += `${param.marker}${param.seriesName}: ${param.value}°C${offlineMark}<br/>`;
+        });
+        return result;
+      }
+    },
+    legend: { data: series.map(s => s.name), textStyle: { color: '#ccc' } },
+    grid: { left: '3%', right: '4%', top: '15%', bottom: '20%', containLabel: true },
+    xAxis: { type: 'category', data: times, axisLabel: { color: '#999' } },
+    yAxis: { type: 'value', name: '°C', axisLabel: { color: '#999' } },
+    dataZoom: [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', height: 18, bottom: 8, start: 0, end: 100 }],
+    series
+  }, true);
+}
+
+function updateStats(data) {
+  const grid = document.getElementById('statsGrid');
+  const keys = getEnabledTagKeys();
+  let html = '';
+  keys.forEach(k => {
+    const temps = data.map(d => d[k]).filter(t => t != null);
+    if (temps.length > 0) {
+      html += `<div class="stat-item">
+        <div style="font-weight:bold;margin-bottom:8px;color:#00b4d8">${getTagLabel(k)}</div>
+        <div style="font-size:13px">最高: <strong>${Math.max(...temps).toFixed(1)}°C</strong></div>
+        <div style="font-size:13px">最低: <strong>${Math.min(...temps).toFixed(1)}°C</strong></div>
+        <div style="font-size:13px">平均: <strong>${(temps.reduce((a,b)=>a+b,0)/temps.length).toFixed(1)}°C</strong></div>
+        <div style="font-size:11px;opacity:.4;margin-top:4px">共${temps.length}条</div>
+      </div>`;
+    }
+  });
+  grid.innerHTML = html || '<div class="stat-item"><div class="stat-value">--</div><div class="stat-label">暂无数据</div></div>';
+}
+
+// ---- 报警 ----
+async function loadAlerts() {
+  try {
+    const r = await fetch('/api/alerts'); const d = await r.json();
+    if (d.success) {
+      alerts = d.data;
+      const un = alerts.filter(a => !a.confirmed).length;
+      const btn = document.getElementById('alertBtn');
+      const offlineUn = alerts.filter(a => !a.confirmed && a.alert_type === 'offline_retransmit').length;
+      const tempUn = un - offlineUn;
+      btn.innerHTML = `🔔 报警 (${un})`;
+      btn.className = un>0 ? 'btn btn-danger' : 'btn btn-outline';
+    }
+  } catch(e) { console.error(e); }
+}
+
+function showAlerts() {
+  document.getElementById('alertModal').classList.add('show');
+  const list = document.getElementById('alertList');
+  const typeFilter = document.getElementById('alertTypeFilter').value;
+  
+  let filtered = alerts;
+  if (typeFilter) {
+    filtered = alerts.filter(a => (a.alert_type || 'temperature') === typeFilter);
+  }
+  
+  if (filtered.length === 0) { 
+    list.innerHTML = '<div style="text-align:center;padding:20px;opacity:.4">暂无报警记录</div>'; 
+    document.getElementById('clearAlertsBtn').style.display = 'none';
+    return; 
+  }
+  
+  const unconfirmedCount = filtered.filter(a => !a.confirmed).length;
+  const totalCount = filtered.length;
+  // 只有当所有报警都已确认时才显示清理按钮
+  const clearBtn = document.getElementById('clearAlertsBtn');
+  clearBtn.style.display = unconfirmedCount === 0 ? 'inline-block' : 'none';
+  
+  list.innerHTML = `<div style="font-size:11px;opacity:.5;margin-bottom:8px">${totalCount} 条记录，${unconfirmedCount} 条未确认</div>` + 
+    filtered.map(a => {
+      const alertTypeStr = a.alert_type || 'temperature';
+      const typeBadge = alertTypeStr === 'offline_retransmit' 
+        ? '<span class="alert-type-badge offline_retransmit">📡 断网重传</span>'
+        : '<span class="alert-type-badge temperature">🌡️ 温度阈值</span>';
+      const isOff = a.alert_type === 'offline_retransmit';
+      return `<div class="alert-item ${isOff ? 'offline' : a.type} ${a.confirmed ? 'confirmed' : ''}">
+    <div style="flex:1">
+      ${typeBadge}${a.temperature_field ? '<strong>'+a.temperature_field+'</strong>: '+a.temperature+'°C' : '<strong>数据重传</strong>'}
+    <div class="alert-time">${new Date(a.timestamp).toLocaleString('zh-CN')} - ${a.message}</div></div>
+    ${!a.confirmed ? `<button class="btn btn-outline btn-sm" onclick="confirmAlert('${a.id}')">确认</button>` : '<span style="color:#2ecc71;font-size:12px">✓ 已确认</span>'}
+  </div>`;
+    }).join('');
+}
+
+async function confirmAlert(id) {
+  if (!requireLogin()) return;
+  await fetch(`/api/alerts/${id}/confirm`,{method:'POST',headers:authHeaders()});
+  await loadAlerts(); showAlerts();
+}
+async function confirmAllAlerts() {
+  if (!requireLogin()) return;
+  await fetch('/api/alerts/confirm-all',{method:'POST',headers:authHeaders()});
+  await loadAlerts(); showAlerts();
+}
+
+async function clearConfirmedAlerts() {
+  if (!requireAdmin()) return;
+  // 检查是否有未确认的报警
+  const anyUnconfirmed = alerts.some(a => !a.confirmed);
+  if (anyUnconfirmed) {
+    alert('还有未确认的报警，请先确认所有报警再清理！');
+    return;
+  }
+  if (!confirm('确定清理所有已确认的报警记录？此操作不可恢复。')) return;
+  try {
+    const r = await fetch('/api/alerts/clear', { method: 'DELETE', headers: authHeaders() });
+    const d = await r.json();
+    if (d.success) {
+      alert(`已清理 ${d.clearedCount} 条报警记录`);
+    } else {
+      alert(d.message || '清理失败');
+    }
+    await loadAlerts(); showAlerts();
+  } catch(e) { alert('清理失败: ' + e.message); }
+}
+
+// ---- 操作前检查权限 ----
+function requireLogin() {
+  if (!isLoggedIn()) { location.href = 'login.html?redirect=index.html'; return false; }
+  return true;
+}
+function requireAdmin() {
+  if (!requireLogin()) return false;
+  if (!isAdmin()) { alert('权限不足，此操作需要管理员权限'); return false; }
+  return true;
+}
+
+// ---- 温度标签管理（标签即疫苗） ----
+function showTagManager() {
+  if (!requireAdmin()) return;
+  clearTagForm();
+  document.getElementById('editingTagKey').value = '';
+  document.getElementById('newTagKey').disabled = false;
+  document.getElementById('tagModalTitle').textContent = '➕ 添加标签';
+  document.getElementById('tagModalDeleteArea').style.display = 'none';
+  document.getElementById('tagModal').classList.add('show');
+}
+
+function clearTagForm() {
+  ['newTagKey','newTagLabel','newTagManufacturer','newTagBatch','newTagTempMin','newTagTempMax','newTagExpiryStart','newTagExpiryEnd','newTagLocation'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+}
+
+function editTagFromInfo(key) {
+  if (!requireAdmin()) return;
+  const t = temperatureTags[key];
+  if (!t) return;
+  document.getElementById('editingTagKey').value = t.key;
+  document.getElementById('newTagKey').value = t.key;
+  document.getElementById('newTagKey').disabled = true;
+  document.getElementById('newTagLabel').value = t.label || '';
+  document.getElementById('newTagManufacturer').value = t.manufacturer || '';
+  document.getElementById('newTagBatch').value = t.batch || '';
+  document.getElementById('newTagTempMin').value = t.temp_min || '';
+  document.getElementById('newTagTempMax').value = t.temp_max || '';
+  document.getElementById('newTagExpiryStart').value = t.expiry_start || '';
+  document.getElementById('newTagExpiryEnd').value = t.expiry_end || '';
+  document.getElementById('newTagLocation').value = t.location || '';
+  document.getElementById('tagModalTitle').textContent = '✏️ 编辑标签';
+  document.getElementById('tagModalDeleteArea').style.display = 'block';
+  document.getElementById('tagModal').classList.add('show');
+}
+
+async function saveTag() {
+  if (!requireAdmin()) return;
+  const editingKey = document.getElementById('editingTagKey').value;
+  const key = document.getElementById('newTagKey').value.trim();
+  const label = document.getElementById('newTagLabel').value.trim();
+  if (!key) { alert('请输入标签 key'); return; }
+  if (!label) { alert('请输入显示名称/疫苗名称'); return; }
+  const tagData = {
+    key, label,
+    manufacturer: document.getElementById('newTagManufacturer').value.trim(),
+    batch: document.getElementById('newTagBatch').value.trim(),
+    temp_min: document.getElementById('newTagTempMin').value.trim(),
+    temp_max: document.getElementById('newTagTempMax').value.trim(),
+    expiry_start: document.getElementById('newTagExpiryStart').value,
+    expiry_end: document.getElementById('newTagExpiryEnd').value,
+    location: document.getElementById('newTagLocation').value.trim()
+  };
+  try {
+    await fetch('/api/temperature/tags', { method:'POST', headers:authHeaders(), body:JSON.stringify(tagData) });
+    document.getElementById('newTagKey').disabled = false;
+    clearTagForm();
+    document.getElementById('editingTagKey').value = '';
+    closeModal('tagModal');
+    await loadTags();
+    renderTagInfoList();
+    buildChartTabs();
+    refreshData();
+  } catch(e) { console.error(e); }
+}
+
+async function deleteTagInModal() {
+  if (!requireAdmin()) return;
+  const key = document.getElementById('editingTagKey').value;
+  if (!key || !confirm(`确定删除标签 "${key}"?`)) return;
+  try {
+    await fetch(`/api/temperature/tags/${key}`, { method:'DELETE', headers:authHeaders() });
+    closeModal('tagModal');
+    await loadTags();
+    renderTagInfoList();
+    buildChartTabs();
+    refreshData();
+  } catch(e) { console.error(e); }
+}
+
+// ---- 标签信息列表 ----
+function formatDateTime(iso) {
+  if (!iso) return '?';
+  try { return new Date(iso).toLocaleString('zh-CN'); } catch(e) { return iso; }
+}
+
+function renderTagInfoList() {
+  const list = document.getElementById('tagInfoList');
+  const tags = Object.values(temperatureTags).sort((a,b) => (a.order||0)-(b.order||0));
+  const enabledTags = tags.filter(t => t.enabled !== false);
+  document.getElementById('tagCount').textContent = enabledTags.length;
+  if (tags.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:20px;opacity:.4">暂无标签，点击"添加标签"或"管理标签"添加</div>';
+    return;
+  }
+  list.innerHTML = tags.map(t => {
+    const status = t.enabled === false ? '<span style="color:#e74c3c;font-size:11px">已停用</span>' : '<span style="color:#2ecc71;font-size:11px">启用</span>';
+    const expiryInfo = t.expiry_end ? `<span style="font-size:11px;opacity:.5">📅 ${formatDateTime(t.expiry_start)} ~ ${formatDateTime(t.expiry_end)}</span>` : '';
+    const metaParts = [];
+    if (t.batch) metaParts.push('批次:'+t.batch);
+    if (t.manufacturer) metaParts.push(t.manufacturer);
+    if (t.temp_min || t.temp_max) metaParts.push('🌡️阈值 '+ (t.temp_min||'?') +'~'+ (t.temp_max||'?') +'°C');
+    if (t.location) metaParts.push('📍'+t.location);
+    const meta = metaParts.length > 0 ? metaParts.join(' · ') : '';
+    return `<div class="vaccine-list-item">
+      <div class="info">
+        <strong>${t.label || t.key}</strong>
+        <span style="font-size:11px;opacity:.5;margin-left:8px">${t.key}</span>
+        ${expiryInfo}
+        ${meta ? `<div class="meta">${meta}</div>` : ''}
+        <div>状态: ${status}</div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="editTagFromInfo('${t.key}')">✏️ 编辑</button>
+    </div>`;
+  }).join('');
+}
+
+// ---- 导出 ----
+async function exportAllData() {
+  // 导出最近 7 天数据
+  const end = new Date().toISOString();
+  const start = new Date(Date.now() - 7*24*60*60*1000).toISOString();
+  const r = await fetch(`/api/temperature/history?startTime=${encodeURIComponent(start)}&endTime=${encodeURIComponent(end)}`);
+  const d = await r.json();
+  if (!d.success) return;
+  const keys = getEnabledTagKeys();
+  const rows = d.data.map(item => {
+    const row = { '时间': new Date(item.timestamp).toLocaleString('zh-CN') };
+    keys.forEach(k => {
+      row[getTagLabel(k)+' (°C)'] = item[k] != null ? item[k] : '';
+    });
+    return row;
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '冷链温度数据');
+  XLSX.writeFile(wb, `疫苗冷链温度_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+async function exportSingle(key) {
+  const end = new Date().toISOString();
+  const start = new Date(Date.now() - 7*24*60*60*1000).toISOString();
+  const r = await fetch(`/api/temperature/history?startTime=${encodeURIComponent(start)}&endTime=${encodeURIComponent(end)}`);
+  const d = await r.json();
+  if (!d.success) return;
+  const rows = d.data.filter(item => item[key]!=null).map(item => ({
+    '时间': new Date(item.timestamp).toLocaleString('zh-CN'),
+    '温度(°C)': item[key]
+  }));
+  const label = getTagLabel(key);
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, label);
+  XLSX.writeFile(wb, `${label}_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+
+// ---- 通用 ----
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// ---- 初始化 ----
+let mapInstance = null;
+let mapMarkers = [];
+let mapPolyline = null;
+
+function initMap() {
+  if (mapInstance) return;
+  mapInstance = L.map('mapContainer', {
+    center: [32.204, 118.706],
+    zoom: 15,
+    zoomControl: true
+  });
+  // 使用高德瓦片（国内速度快）
+  L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+    subdomains: '1234',
+    attribution: '&copy; 高德地图'
+  }).addTo(mapInstance);
+  // 加载历史数据和路线
+  loadLocationData();
+}
+
+function loadLocationData() {
+  fetch('/api/location/history?limit=100')
+    .then(r => r.json())
+    .then(d => {
+      if (!d.success || d.data.length === 0) return;
+      const locs = d.data;
+      // 更新最新位置
+      const latest = locs[0];
+      updateLocationDisplay({ latitude: latest.latitude, longitude: latest.longitude, address: latest.address, timestamp: latest.timestamp });
+      // 绘制路线
+      drawRoute(locs);
+    }).catch(e => console.error('加载位置数据失败', e));
+}
+
+function updateLocationDisplay(loc) {
+  if (!loc || loc.latitude == null) return;
+  document.getElementById('locCoord').textContent = `${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}`;
+  document.getElementById('locAddr').textContent = loc.address || '';
+  if (loc.timestamp) {
+    document.getElementById('locTime').textContent = new Date(loc.timestamp).toLocaleString('zh-CN');
+  }
+}
+
+function addMapMarker(loc) {
+  if (!mapInstance || loc.latitude == null) return;
+  // 清除旧标记
+  mapMarkers.forEach(m => mapInstance.removeLayer(m));
+  mapMarkers = [];
+  const marker = L.marker([loc.latitude, loc.longitude]).addTo(mapInstance)
+    .bindPopup(`<b>当前位置</b><br>${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}<br>${loc.address || ''}<br>${loc.timestamp ? new Date(loc.timestamp).toLocaleString('zh-CN') : ''}`);
+  mapMarkers.push(marker);
+  mapInstance.setView([loc.latitude, loc.longitude], mapInstance.getZoom());
+}
+
+function drawRoute(locations) {
+  if (!mapInstance || locations.length === 0) return;
+  // 清除旧标记和路线
+  mapMarkers.forEach(m => mapInstance.removeLayer(m));
+  mapMarkers = [];
+  if (mapPolyline) { mapInstance.removeLayer(mapPolyline); mapPolyline = null; }
+
+  const latlngs = locations.map(l => [l.latitude, l.longitude]);
+  
+  // 画路线
+  mapPolyline = L.polyline(latlngs, { color: '#00b4d8', weight: 3, opacity: 0.7 }).addTo(mapInstance);
+  
+  // 起点标记
+  if (locations.length > 0) {
+    const first = locations[locations.length - 1];
+    const startMarker = L.circleMarker([first.latitude, first.longitude], {
+      radius: 6, color: '#2ecc71', fillColor: '#2ecc71', fillOpacity: 0.8
+    }).addTo(mapInstance).bindPopup('⛳ 最早记录<br>' + new Date(first.timestamp).toLocaleString('zh-CN'));
+    mapMarkers.push(startMarker);
+  }
+  
+  // 终点标记（最新位置）
+  const latest = locations[0];
+  const endMarker = L.marker([latest.latitude, latest.longitude]).addTo(mapInstance)
+    .bindPopup(`<b>📍 最新位置</b><br>${latest.latitude.toFixed(6)}, ${latest.longitude.toFixed(6)}<br>${latest.address || ''}<br>${new Date(latest.timestamp).toLocaleString('zh-CN')}`);
+  mapMarkers.push(endMarker);
+  
+  // 自适应视野
+  mapInstance.fitBounds(latlngs, { padding: [30, 30] });
+
+  // 统计信息
+  document.getElementById('routeStats').textContent = `共 ${locations.length} 个位置点`;
+}
+
+(async function init() {
+  // 未登录则跳转到登录页
+  if (!isLoggedIn()) {
+    location.href = 'login.html?redirect=index.html';
+    return;
+  }
+  // 验证 token 有效性
+  try {
+    const r = await fetch('/api/auth/me', { headers: authHeaders() });
+    if (r.status !== 200) throw 'invalid';
+  } catch(e) {
+    location.href = 'login.html?redirect=index.html';
+    return;
+  }
+  updateUserArea();
+  await loadTags();
+  initThresholdsFromTags();
+  buildChartTabs();
+  renderTagInfoList();
+  
+  // 优先从缓存即时渲染，再后台拉取最新数据
+  const cached = loadCache();
+  if (cached && cached.length > 0) {
+    allDataCache = cached;
+    const displayData = getDisplayData(cached);
+    renderCards(cached[0], displayData);
+    updateChart(displayData);
+    updateStats(displayData);
+    updateStatusCount(cached[0]);
+    updateResponsibleDisplay(cached[0]);
+    const dc = document.getElementById('dataCountInfo');
+    if (dc) dc.textContent = `显示 ${displayData.length} 条（缓存）`;
+    // 后台静默刷新最新数据
+    refreshData();
+  } else {
+    await refreshData();
+  }
+  connectSSE();
+  setTimeout(lazyLoadRemaining, 500);
+  setTimeout(initMap, 800);
+  window.addEventListener('resize', () => { if (historyChart) historyChart.resize(); });
+})();
+</script>
+</body>
+</html>

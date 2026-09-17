@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 · 疫苗冷链温度监控系统</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);min-height:100vh;display:flex;align-items:center;justify-content:center;color:#e0e0e0}
+.login-card{background:#1a2a35;border-radius:20px;padding:40px;width:90%;max-width:420px;border:1px solid rgba(255,255,255,.1);box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.logo{text-align:center;margin-bottom:32px}
+.logo .icon{font-size:48px;margin-bottom:12px}
+.logo h1{font-size:22px;color:#fff;margin-bottom:6px}
+.logo p{font-size:13px;opacity:.5}
+.form-group{margin-bottom:18px}
+.form-group label{display:block;margin-bottom:6px;font-weight:500;font-size:14px;opacity:.8}
+.form-group input{width:100%;padding:12px 14px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:rgba(255,255,255,.05);color:#fff;font-size:15px;transition:all .2s}
+.form-group input:focus{outline:none;border-color:#00b4d8;background:rgba(255,255,255,.08)}
+.form-group input::placeholder{color:rgba(255,255,255,.25)}
+.error-msg{color:#e74c3c;font-size:13px;margin-bottom:16px;display:none;padding:8px 12px;background:rgba(231,76,60,.1);border-radius:8px}
+.btn{padding:12px;border:none;border-radius:10px;cursor:pointer;font-size:15px;font-weight:600;width:100%;transition:all .25s;color:#fff}
+.btn-primary{background:linear-gradient(135deg,#0077b6,#00b4d8);box-shadow:0 4px 15px rgba(0,180,216,.3)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(0,180,216,.45)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.tip{margin-top:20px;text-align:center;font-size:12px;opacity:.4}
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="logo">
+    <div class="icon">💉</div>
+    <h1>疫苗冷链温度监控系统</h1>
+    <p>请登录以继续</p>
+  </div>
+  <div id="loginError" class="error-msg"></div>
+  <div class="form-group">
+    <label>账号</label>
+    <input type="text" id="loginUsername" placeholder="请输入账号" autofocus onkeydown="if(event.key==='Enter')$('#loginPassword').focus()">
+  </div>
+  <div class="form-group">
+    <label>密码</label>
+    <input type="password" id="loginPassword" placeholder="请输入密码" onkeydown="if(event.key==='Enter')doLogin()">
+  </div>
+  <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">🔓 登录</button>
+  <div class="tip">默认管理员: admin / admin123</div>
+</div>
+<script>
+function $(id) { return document.getElementById(id); }
+
+function showError(msg) {
+  const el = $('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function getRedirect() {
+  const params = new URLSearchParams(location.search);
+  return params.get('redirect') || 'index.html';
+}
+
+async function doLogin() {
+  const u = $('loginUsername').value.trim();
+  const p = $('loginPassword').value.trim();
+  if (!u || !p) { showError('请输入账号和密码'); return; }
+  $('loginError').style.display = 'none';
+  $('loginBtn').disabled = true;
+  $('loginBtn').textContent = '登录中...';
+  try {
+    const r = await fetch('/api/auth/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:u,password:p})
+    });
+    const d = await r.json();
+    if (d.success) {
+      localStorage.setItem('authToken', d.token);
+      localStorage.setItem('authRole', d.role);
+      localStorage.setItem('authUsername', d.username);
+      location.href = getRedirect();
+    } else {
+      showError(d.error || '登录失败');
+      $('loginBtn').disabled = false;
+      $('loginBtn').textContent = '🔓 登录';
+    }
+  } catch(e) {
+    showError('登录请求失败，请检查服务器连接');
+    $('loginBtn').disabled = false;
+    $('loginBtn').textContent = '🔓 登录';
+  }
+}
+</script>
+</body>
+</html>

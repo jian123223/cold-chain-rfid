@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>后台管理 · 疫苗冷链监控</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);min-height:100vh;color:#e0e0e0}
+.container{max-width:1300px;margin:0 auto;padding:20px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding:16px 22px;background:rgba(255,255,255,.05);border-radius:16px;border:1px solid rgba(255,255,255,.08)}
+.header h1{font-size:22px;color:#fff}
+.header .nav{display:flex;gap:12px;align-items:center}
+.user-badge{font-size:13px;padding:6px 14px;border-radius:16px;background:rgba(0,180,216,.15);color:#00b4d8}
+.user-badge.admin{background:rgba(46,204,113,.15);color:#2ecc71}
+
+.btn{padding:8px 18px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:all .25s;color:#fff}
+.btn-primary{background:linear-gradient(135deg,#0077b6,#00b4d8);box-shadow:0 4px 15px rgba(0,180,216,.3)}
+.btn-primary:hover{transform:translateY(-2px)}
+.btn-danger{background:linear-gradient(135deg,#c0392b,#e74c3c)}
+.btn-success{background:linear-gradient(135deg,#27ae60,#2ecc71)}
+.btn-outline{background:transparent;border:1px solid rgba(255,255,255,.2)}
+.btn-outline:hover{background:rgba(255,255,255,.08)}
+.btn-sm{padding:5px 12px;font-size:11px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+.tabs-nav{display:flex;gap:8px;margin-bottom:20px}
+.tab-btn{padding:10px 24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;cursor:pointer;font-size:14px;font-weight:500;color:#ccc;transition:all .2s}
+.tab-btn.active{background:#00b4d8;color:#fff;border-color:#00b4d8}
+.tab-btn:hover:not(.active){background:rgba(255,255,255,.08)}
+
+.section{background:rgba(255,255,255,.05);border-radius:16px;padding:22px;border:1px solid rgba(255,255,255,.08);display:none}
+.section.active{display:block}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.section-title{font-size:18px;font-weight:bold;color:#fff}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid rgba(255,255,255,.06)}
+th{font-weight:600;opacity:.6;font-size:12px;text-transform:uppercase}
+tr:hover{background:rgba(255,255,255,.03)}
+
+/* 任务安排卡片 */
+.task-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.task-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:20px;transition:all .25s;position:relative}
+.task-card:hover{background:rgba(255,255,255,.09);transform:translateY(-2px)}
+.task-card.current{border-color:#00b4d8;box-shadow:0 0 20px rgba(0,180,216,.15)}
+.task-card .card-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.task-card .zeren-badge{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#0077b6,#00b4d8);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:bold;color:#fff;flex-shrink:0}
+.task-card .zeren-badge.unassigned{background:rgba(255,255,255,.1)}
+.task-card .card-name{font-size:15px;font-weight:600;color:#fff}
+.task-card .card-username{font-size:11px;opacity:.5}
+.task-card .card-field{margin-bottom:12px}
+.task-card .card-field label{display:block;font-size:11px;opacity:.5;margin-bottom:4px}
+.task-card .card-field input,.task-card .card-field select{width:100%;padding:8px 10px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:rgba(0,0,0,.3);color:#fff;font-size:13px;box-sizing:border-box}
+.task-card .card-field input:focus{outline:none;border-color:#00b4d8}
+.task-card .card-actions{display:flex;gap:8px;margin-top:14px}
+.task-summary{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.task-summary-item{flex:1;min-width:120px;padding:14px 18px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);text-align:center}
+.task-summary-item .num{font-size:28px;font-weight:bold;color:#00b4d8}
+.task-summary-item .label{font-size:11px;opacity:.5;margin-top:4px}
+
+.filter-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:12px;background:rgba(255,255,255,.03);border-radius:10px;font-size:13px}
+.filter-row input,.filter-row select{padding:6px 10px;border:1px solid rgba(255,255,255,.15);border-radius:6px;background:rgba(255,255,255,.06);color:#fff;font-size:12px}
+.filter-row input:focus,.filter-row select:focus{outline:none;border-color:#00b4d8}
+.filter-row select option{background:#1a2a35;color:#fff}
+
+.pager{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:16px}
+.pager span{font-size:13px}
+
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:2000;align-items:center;justify-content:center}
+.modal.show{display:flex}
+.modal-content{background:#1a2a35;border-radius:16px;padding:28px;width:92%;max-width:500px;max-height:85vh;overflow-y:auto;border:1px solid rgba(255,255,255,.1);color:#e0e0e0}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-title{font-size:18px;font-weight:bold;color:#fff}
+.close-btn{font-size:28px;cursor:pointer;opacity:.5;transition:opacity .2s}
+.close-btn:hover{opacity:1}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;margin-bottom:5px;font-weight:500;font-size:13px;opacity:.8}
+.form-group input,.form-group select{width:100%;padding:10px;border:1px solid rgba(255,255,255,.15);border-radius:8px;background:rgba(255,255,255,.06);color:#fff;font-size:14px}
+.form-group input:focus{outline:none;border-color:#00b4d8}
+.form-group select option{background:#1a2a35;color:#fff}
+
+pre{white-space:pre-wrap;word-break:break-all;font-size:12px;color:#a0a0a0;background:rgba(0,0,0,.2);padding:10px;border-radius:8px;line-height:1.5}
+.log-entry{margin-bottom:8px;border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden}
+.log-head{padding:8px 12px;background:rgba(255,255,255,.04);cursor:pointer;font-size:12px;display:flex;justify-content:space-between;align-items:center}
+.log-head .time{color:#00b4d8}
+.log-head .meta{opacity:.5}
+.log-body{display:none;padding:10px 14px}
+.log-body.show{display:block}
+
+.op-log-item{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}
+.op-log-item .op-time{font-size:11px;opacity:.5}
+.op-log-item .op-user{color:#00b4d8;font-weight:600}
+.op-log-item .op-action{color:#f39c12}
+.op-log-item .op-detail{opacity:.7}
+
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:rgba(255,255,255,.03)}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:3px}
+
+.login-box{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:3000;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364)}
+.login-card{background:#1a2a35;border-radius:16px;padding:36px;width:90%;max-width:400px;border:1px solid rgba(255,255,255,.1)}
+</style>
+</head>
+<body>
+
+<div id="loginOverlay" class="login-box" style="display:none">
+  <div class="login-card" style="text-align:center">
+    <h2 style="color:#fff;margin-bottom:16px">🔐 需要管理员权限</h2>
+    <p style="opacity:.6;margin-bottom:24px">此页面仅限管理员访问</p>
+    <a href="login.html?redirect=admin.html" class="btn btn-primary" style="display:inline-block;text-decoration:none;width:auto;padding:12px 40px">前往登录</a>
+  </div>
+</div>
+
+<div class="container" id="appContent" style="display:none">
+  <div class="header">
+    <h1>⚙️ 后台管理</h1>
+    <div class="nav">
+      <span class="user-badge admin" id="userBadge"></span>
+      <a href="index.html" class="btn btn-outline btn-sm">📊 监控页面</a>
+      <button class="btn btn-outline btn-sm" onclick="doLogout()">退出</button>
+    </div>
+  </div>
+
+  <div class="tabs-nav">
+    <button class="tab-btn active" data-tab="users">👥 用户管理</button>
+    <button class="tab-btn" data-tab="tasks" id="tasksTab" style="display:none">📋 任务安排</button>
+    <button class="tab-btn" data-tab="opLogs">📝 操作日志</button>
+    <button class="tab-btn" data-tab="rawLogs">📋 原始推送日志</button>
+  </div>
+
+  <!-- 用户管理 -->
+  <div class="section active" id="tab-users">
+    <div class="section-header">
+      <div class="section-title">👥 用户列表</div>
+      <button class="btn btn-primary" onclick="showAddUserModal()">➕ 添加用户</button>
+    </div>
+    <table>
+      <thead><tr><th>ID</th><th>用户名</th><th>角色</th><th>责任人编号</th><th>职责</th><th>责任心</th><th>创建时间</th><th>操作</th></tr></thead>
+      <tbody id="userList"></tbody>
+    </table>
+  </div>
+
+  <!-- 任务安排（仅超级管理员可见） -->
+  <div class="section" id="tab-tasks">
+    <div class="section-header">
+      <div class="section-title">📋 管理员任务安排</div>
+      <button class="btn btn-success" onclick="saveAllTasks()">💾 保存全部</button>
+    </div>
+    <div class="task-summary" id="taskSummary"></div>
+    <div class="task-grid" id="taskGrid"></div>
+  </div>
+
+  <!-- 操作日志 -->
+  <div class="section" id="tab-opLogs">
+    <div class="section-header"><div class="section-title">📝 操作日志</div></div>
+    <div class="filter-row">
+      <label>时间：</label>
+      <input type="datetime-local" id="opLogStart" style="width:210px" step="1">
+      <span style="opacity:.5">~</span>
+      <input type="datetime-local" id="opLogEnd" style="width:210px" step="1">
+      <label style="margin-left:8px">操作：</label>
+      <select id="opLogAction">
+        <option value="">全部</option>
+        <option value="login">登录</option>
+        <option value="upsert_tag">标签管理</option>
+        <option value="delete_tag">删除标签</option>
+        <option value="update_vaccine">疫苗管理</option>
+        <option value="confirm_alert">报警确认</option>
+        <option value="create_user">创建用户</option>
+        <option value="update_user">修改用户</option>
+        <option value="delete_user">删除用户</option>
+        <option value="clear_logs">清空日志</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="loadOpLogs(1)">🔍 筛选</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('opLogStart').value='';document.getElementById('opLogEnd').value='';document.getElementById('opLogAction').value='';loadOpLogs(1)">清除</button>
+    </div>
+    <div id="opLogList"></div>
+    <div class="pager" id="opLogPager"></div>
+  </div>
+
+  <!-- 原始推送日志 -->
+  <div class="section" id="tab-rawLogs">
+    <div class="section-header">
+      <div class="section-title">📋 IoTDA 原始推送日志</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-success btn-sm" onclick="exportRawLogs()">📥 导出</button>
+        <button class="btn btn-danger btn-sm" onclick="clearRawLogs()">🗑️ 清空</button>
+      </div>
+    </div>
+    <div class="filter-row">
+      <label>时间（精确到秒）：</label>
+      <input type="datetime-local" id="rawLogStart" style="width:210px" step="1">
+      <span style="opacity:.5">~</span>
+      <input type="datetime-local" id="rawLogEnd" style="width:210px" step="1">
+      <button class="btn btn-primary btn-sm" onclick="loadRawLogs(1)">🔍 筛选</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('rawLogStart').value='';document.getElementById('rawLogEnd').value='';loadRawLogs(1)">清除</button>
+    </div>
+    <div id="rawLogList"></div>
+    <div class="pager" id="rawLogPager"></div>
+  </div>
+</div>
+
+<!-- 添加/编辑用户弹窗 -->
+<div class="modal" id="userModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" id="userModalTitle">添加用户</div>
+      <span class="close-btn" onclick="closeModal('userModal')">&times;</span>
+    </div>
+    <div class="form-group">
+      <label>用户名</label>
+      <input type="text" id="editUsername" placeholder="请输入用户名">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="editPassword" placeholder="请输入密码">
+    </div>
+    <div class="form-group">
+      <label>角色</label>
+      <select id="editRole" onchange="updateZerenFieldsVisibility()">
+        <option value="user">普通用户（只读+导出）</option>
+        <option value="admin">管理员（全部权限）</option>
+        <option value="super_admin">超级管理员</option>
+      </select>
+    </div>
+    <div class="form-group" id="zerenGroup">
+      <label>责任人编号 (zeren)</label>
+      <input type="number" id="editZeren" placeholder="管理员编号，如 1,2,3..." min="0">
+    </div>
+    <div class="form-group" id="dutyGroup">
+      <label>职责 (duty)</label>
+      <input type="text" id="editDuty" placeholder="如：冷链主管、质量监督...">
+    </div>
+    <div class="form-group" id="responsibilityGroup">
+      <label>责任心 (responsibility) <span style="color:#f39c12;font-size:11px">仅超级管理员可填写</span></label>
+      <input type="text" id="editResponsibility" placeholder="描述该管理员的责任范围">
+    </div>
+    <button class="btn btn-primary" onclick="saveUser()" style="width:100%">💾 保存</button>
+    <input type="hidden" id="editUserId" value="">
+  </div>
+</div>
+
+<script>
+let token = '';
+let role = '';
+let username = '';
+let opLogPage = 1, opLogTotal = 1;
+let rawLogPage = 1, rawLogTotal = 1;
+
+// ---- 登出 ----
+async function doLogout() {
+  try { await fetch('/api/auth/logout', { method:'POST', headers:{'X-Auth-Token':token} }); } catch(e) {}
+  localStorage.clear();
+  location.href = 'login.html';
+}
+
+// ---- 初始化 ----
+function init() {
+  // 超级管理员显示任务安排 Tab
+  if (isSuperAdmin()) {
+    document.getElementById('tasksTab').style.display = '';
+  }
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.onclick = function() {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      this.classList.add('active');
+      document.getElementById('tab-'+this.dataset.tab).classList.add('active');
+      if (this.dataset.tab === 'users') loadUsers();
+      else if (this.dataset.tab === 'tasks') loadTasks();
+      else if (this.dataset.tab === 'opLogs') loadOpLogs(1);
+      else if (this.dataset.tab === 'rawLogs') loadRawLogs(1);
+    };
+  });
+  loadUsers();
+}
+
+// ---- 用户管理 ----
+function isSuperAdmin() { return role === 'super_admin'; }
+
+async function loadUsers() {
+  try {
+    const r = await fetch('/api/admin/users', { headers:{'X-Auth-Token':token} });
+    const d = await r.json();
+    if (!d.success) return;
+    document.getElementById('userList').innerHTML = d.data.map(u => {
+      let roleLabel = u.role === 'super_admin' ? '<span style="color:#f39c12">超级管理员</span>' 
+        : u.role === 'admin' ? '<span style="color:#2ecc71">管理员</span>' 
+        : '<span style="color:#00b4d8">普通用户</span>';
+      return `<tr>
+      <td>${u.id}</td>
+      <td>${u.username}</td>
+      <td>${roleLabel}</td>
+      <td>${u.zeren != null ? u.zeren : '-'}</td>
+      <td>${u.duty || '-'}</td>
+      <td>${u.responsibility || '-'}</td>
+      <td style="font-size:12px;opacity:.6">${new Date(u.created_at).toLocaleString('zh-CN')}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="showEditUserModal(${u.id},'${u.username}','${u.role}',${u.zeren != null ? u.zeren : 'null'},'${u.duty||''}','${u.responsibility||''}')">编辑</button>
+        ${u.username==='admin' ? '' : `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">删除</button>`}
+      </td>
+    </tr>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+function showAddUserModal() {
+  document.getElementById('userModalTitle').textContent = '➕ 添加用户';
+  document.getElementById('editUsername').value = '';
+  document.getElementById('editPassword').value = '';
+  document.getElementById('editRole').value = 'user';
+  document.getElementById('editUserId').value = '';
+  document.getElementById('editUsername').disabled = false;
+  document.getElementById('editZeren').value = '';
+  document.getElementById('editDuty').value = '';
+  document.getElementById('editResponsibility').value = '';
+  // 只有超级管理员能设置管理员相关字段，且能选择超级管理员角色
+  document.getElementById('editRole').querySelector('option[value="super_admin"]').style.display = isSuperAdmin() ? '' : 'none';
+  updateZerenFieldsVisibility();
+  document.getElementById('userModal').classList.add('show');
+}
+
+function showEditUserModal(id, uname, urole, zeren, duty, responsibility) {
+  document.getElementById('userModalTitle').textContent = '✏️ 编辑用户';
+  document.getElementById('editUsername').value = uname;
+  document.getElementById('editUsername').disabled = true;
+  document.getElementById('editPassword').value = '';
+  document.getElementById('editPassword').placeholder = '留空则不修改密码';
+  document.getElementById('editRole').value = urole;
+  document.getElementById('editUserId').value = id;
+  document.getElementById('editZeren').value = zeren != null ? zeren : '';
+  document.getElementById('editDuty').value = duty || '';
+  document.getElementById('editResponsibility').value = responsibility || '';
+  // 只有超级管理员能看到 super_admin 选项
+  document.getElementById('editRole').querySelector('option[value="super_admin"]').style.display = isSuperAdmin() ? '' : 'none';
+  updateZerenFieldsVisibility();
+  document.getElementById('userModal').classList.add('show');
+}
+
+function updateZerenFieldsVisibility() {
+  const roleVal = document.getElementById('editRole').value;
+  const isZerenRelevant = roleVal === 'admin' || roleVal === 'super_admin';
+  document.getElementById('zerenGroup').style.display = isZerenRelevant ? 'block' : 'none';
+  document.getElementById('dutyGroup').style.display = isZerenRelevant ? 'block' : 'none';
+  document.getElementById('responsibilityGroup').style.display = isZerenRelevant ? 'block' : 'none';
+  // 只有超级管理员能编辑责任心
+  document.getElementById('editResponsibility').disabled = !isSuperAdmin();
+  document.getElementById('editZeren').disabled = !isSuperAdmin();
+}
+
+async function saveUser() {
+  const id = document.getElementById('editUserId').value;
+  const uname = document.getElementById('editUsername').value.trim();
+  const pwd = document.getElementById('editPassword').value.trim();
+  const role = document.getElementById('editRole').value;
+  const zerenVal = document.getElementById('editZeren').value;
+  const dutyVal = document.getElementById('editDuty').value.trim();
+  const respVal = document.getElementById('editResponsibility').value.trim();
+  if (!id) {
+    if (!uname || !pwd) { alert('用户名和密码不能为空'); return; }
+    const zeren = zerenVal !== '' ? parseInt(zerenVal) : null;
+    const r = await fetch('/api/admin/users', {
+      method:'POST', headers:{'Content-Type':'application/json','X-Auth-Token':token},
+      body:JSON.stringify({username:uname,password:pwd,role,zeren,duty:dutyVal,responsibility:respVal})
+    });
+    const d = await r.json();
+    if (!d.success) { alert(d.error); return; }
+  } else {
+    const body = { role };
+    if (pwd) body.password = pwd;
+    if (zerenVal !== '') body.zeren = parseInt(zerenVal);
+    if (dutyVal !== '') body.duty = dutyVal;
+    if (respVal !== '') body.responsibility = respVal;
+    const r = await fetch('/api/admin/users/'+id, {
+      method:'PUT', headers:{'Content-Type':'application/json','X-Auth-Token':token},
+      body:JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!d.success) { alert(d.error); return; }
+  }
+  closeModal('userModal');
+  loadUsers();
+}
+
+async function deleteUser(id) {
+  if (!confirm('确定删除此用户？')) return;
+  const r = await fetch('/api/admin/users/'+id, { method:'DELETE', headers:{'X-Auth-Token':token} });
+  const d = await r.json();
+  if (!d.success) { alert(d.error); return; }
+  loadUsers();
+}
+
+// ---- 操作日志 ----
+async function loadOpLogs(page) {
+  opLogPage = page;
+  const start = document.getElementById('opLogStart').value;
+  const end = document.getElementById('opLogEnd').value;
+  const action = document.getElementById('opLogAction').value;
+  let url = `/api/admin/operation-logs?page=${page}&pageSize=30`;
+  if (start) url += `&startTime=${new Date(start).toISOString()}`;
+  if (end) url += `&endTime=${new Date(end).toISOString()}`;
+  if (action) url += `&action=${action}`;
+  try {
+    const r = await fetch(url, { headers:{'X-Auth-Token':token} });
+    const d = await r.json();
+    if (!d.success) return;
+    opLogTotal = d.totalPages;
+    if (d.data.length === 0) {
+      document.getElementById('opLogList').innerHTML = '<div style="text-align:center;padding:30px;opacity:.4">暂无操作日志</div>';
+    } else {
+      document.getElementById('opLogList').innerHTML = d.data.map(log => {
+        const actionLabels = {
+          login:'🔑 登录', upsert_tag:'🏷️ 标签管理', delete_tag:'🗑️ 删除标签',
+          update_vaccine:'💊 疫苗管理', confirm_alert:'✅ 报警确认', confirm_all_alerts:'✅ 全部确认',
+          create_user:'👥 创建用户', update_user:'✏️ 修改用户', delete_user:'❌ 删除用户',
+          clear_logs:'🗑️ 清空日志'
+        };
+        return `<div class="op-log-item">
+          <div class="op-time">${new Date(log.timestamp).toLocaleString('zh-CN')}</div>
+          <span class="op-user">${log.user}</span>
+          <span class="op-action">${actionLabels[log.action] || log.action}</span>
+          <span class="op-detail">· ${log.detail || ''} (${log.target})</span>
+          ${log.ip ? `<span style="font-size:10px;opacity:.3;margin-left:8px">IP:${log.ip}</span>` : ''}
+        </div>`;
+      }).join('');
+    }
+    document.getElementById('opLogPager').innerHTML = `
+      <button class="btn btn-outline btn-sm" onclick="loadOpLogs(1)" ${opLogPage<=1?'disabled':''}>首页</button>
+      <button class="btn btn-outline btn-sm" onclick="loadOpLogs(opLogPage-1)" ${opLogPage<=1?'disabled':''}>上一页</button>
+      <span>${opLogPage}/${opLogTotal}</span>
+      <button class="btn btn-outline btn-sm" onclick="loadOpLogs(opLogPage+1)" ${opLogPage>=opLogTotal?'disabled':''}>下一页</button>
+      <button class="btn btn-outline btn-sm" onclick="loadOpLogs(opLogTotal)" ${opLogPage>=opLogTotal?'disabled':''}>末页</button>
+    `;
+  } catch(e) { console.error(e); }
+}
+
+// ---- 原始推送日志 ----
+async function loadRawLogs(page) {
+  rawLogPage = page;
+  const start = document.getElementById('rawLogStart').value;
+  const end = document.getElementById('rawLogEnd').value;
+  let url = `/api/admin/raw-logs?page=${page}&pageSize=30`;
+  if (start) url += `&startTime=${new Date(start).toISOString()}`;
+  if (end) url += `&endTime=${new Date(end).toISOString()}`;
+  try {
+    const r = await fetch(url, { headers:{'X-Auth-Token':token} });
+    const d = await r.json();
+    if (!d.success) return;
+    rawLogTotal = d.totalPages;
+    if (d.data.length === 0) {
+      document.getElementById('rawLogList').innerHTML = '<div style="text-align:center;padding:30px;opacity:.4">暂无日志</div>';
+    } else {
+      document.getElementById('rawLogList').innerHTML = d.data.map(log => {
+        const ts = new Date(log.timestamp).toLocaleString('zh-CN');
+        const id = 'rl_'+log.id;
+        return `<div class="log-entry">
+          <div class="log-head" onclick="document.getElementById('${id}').classList.toggle('show')">
+            <span class="time">⏱️ ${ts}</span>
+            <span class="meta">点击展开/折叠</span>
+          </div>
+          <div class="log-body" id="${id}"><pre>${escapeHtml(JSON.stringify(log.body, null, 2))}</pre></div>
+        </div>`;
+      }).join('');
+    }
+    document.getElementById('rawLogPager').innerHTML = `
+      <button class="btn btn-outline btn-sm" onclick="loadRawLogs(1)" ${rawLogPage<=1?'disabled':''}>首页</button>
+      <button class="btn btn-outline btn-sm" onclick="loadRawLogs(rawLogPage-1)" ${rawLogPage<=1?'disabled':''}>上一页</button>
+      <span>${rawLogPage}/${rawLogTotal}</span>
+      <button class="btn btn-outline btn-sm" onclick="loadRawLogs(rawLogPage+1)" ${rawLogPage>=rawLogTotal?'disabled':''}>下一页</button>
+      <button class="btn btn-outline btn-sm" onclick="loadRawLogs(rawLogTotal)" ${rawLogPage>=rawLogTotal?'disabled':''}>末页</button>
+    `;
+  } catch(e) { console.error(e); }
+}
+
+async function clearRawLogs() {
+  if (!confirm('确定清空所有原始推送日志？此操作不可恢复。')) return;
+  await fetch('/api/admin/raw-logs', { method:'DELETE', headers:{'X-Auth-Token':token} });
+  loadRawLogs(1);
+}
+
+async function exportRawLogs() {
+  const start = document.getElementById('rawLogStart').value;
+  const end = document.getElementById('rawLogEnd').value;
+  let url = '/api/admin/raw-logs?page=1&pageSize=10000';
+  if (start) url += '&startTime=' + new Date(start).toISOString();
+  if (end) url += '&endTime=' + new Date(end).toISOString();
+  const r = await fetch(url, { headers:{'X-Auth-Token':token} });
+  const d = await r.json();
+  if (!d.success || d.data.length === 0) { alert('没有可导出的日志'); return; }
+  const rows = d.data.map(log => ({
+    '时间': new Date(log.timestamp).toLocaleString('zh-CN'),
+    '来源IP': log.ip || '-',
+    '原始JSON': JSON.stringify(log.body)
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:24},{wch:16},{wch:100}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '原始推送日志');
+  XLSX.writeFile(wb, `IoTDA日志_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+
+function escapeHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ---- 通用 ----
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// ---- 任务安排（仅超级管理员） ----
+let tasksData = [];
+
+async function loadTasks() {
+  try {
+    const r = await fetch('/api/admin/tasks', { headers:{'X-Auth-Token':token} });
+    const d = await r.json();
+    if (!d.success) return;
+    tasksData = d.data;
+    renderTaskSummary();
+    renderTaskCards();
+  } catch(e) { console.error(e); }
+}
+
+function renderTaskSummary() {
+  const admins = tasksData.filter(u => u.role === 'admin');
+  const assigned = admins.filter(u => u.zeren != null && u.zeren > 0).length;
+  const unassigned = admins.length - assigned;
+  document.getElementById('taskSummary').innerHTML = `
+    <div class="task-summary-item">
+      <div class="num">${admins.length}</div>
+      <div class="label">管理员总数</div>
+    </div>
+    <div class="task-summary-item">
+      <div class="num">${assigned}</div>
+      <div class="label">已分配编号</div>
+    </div>
+    <div class="task-summary-item">
+      <div class="num">${unassigned}</div>
+      <div class="label">待分配</div>
+    </div>
+  `;
+}
+
+function renderTaskCards() {
+  const admins = tasksData.filter(u => u.role === 'admin');
+  const grid = document.getElementById('taskGrid');
+  grid.innerHTML = admins.map((u, idx) => {
+    const hasZeren = u.zeren != null && u.zeren > 0;
+    return `<div class="task-card ${hasZeren ? '' : 'unassigned'}" id="taskCard_${u.id}">
+      <div class="card-header">
+        <div class="zeren-badge ${hasZeren ? '' : 'unassigned'}">${hasZeren ? u.zeren : '?'}</div>
+        <div>
+          <div class="card-name">${u.username}</div>
+          <div class="card-username">ID: ${u.id} · 管理员</div>
+        </div>
+        ${hasZeren ? '<span style="margin-left:auto;font-size:11px;padding:4px 10px;border-radius:10px;background:rgba(0,180,216,.15);color:#00b4d8">值班编号 #'+u.zeren+'</span>' : '<span style="margin-left:auto;font-size:11px;padding:4px 10px;border-radius:10px;background:rgba(231,76,60,.15);color:#e74c3c">未分配</span>'}
+      </div>
+      <div class="card-field">
+        <label>责任人编号 (zeren)</label>
+        <input type="number" id="zeren_${u.id}" value="${u.zeren != null ? u.zeren : ''}" placeholder="分配编号，如 1,2,3..." min="1">
+      </div>
+      <div class="card-field">
+        <label>职责 (duty)</label>
+        <input type="text" id="duty_${u.id}" value="${u.duty||''}" placeholder="如：冷链主管、质量监督...">
+      </div>
+      <div class="card-field">
+        <label>责任心描述 (responsibility)</label>
+        <input type="text" id="responsibility_${u.id}" value="${u.responsibility||''}" placeholder="描述该管理员的责任范围...">
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-primary btn-sm" onclick="saveTask(${u.id})" style="flex:1">💾 保存</button>
+        <button class="btn btn-outline btn-sm" onclick="clearTaskFields(${u.id})">清空</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function saveTask(userId) {
+  const zerenVal = parseInt(document.getElementById('zeren_'+userId).value) || null;
+  const dutyVal = document.getElementById('duty_'+userId).value.trim();
+  const respVal = document.getElementById('responsibility_'+userId).value.trim();
+  
+  try {
+    const r = await fetch('/api/admin/tasks/assign', {
+      method:'PUT', headers:{'Content-Type':'application/json','X-Auth-Token':token},
+      body: JSON.stringify({ userId, zeren: zerenVal, duty: dutyVal, responsibility: respVal })
+    });
+    const d = await r.json();
+    if (d.success) {
+      // 更新本地数据
+      const idx = tasksData.findIndex(u => u.id === userId);
+      if (idx >= 0) {
+        tasksData[idx].zeren = d.data.zeren;
+        tasksData[idx].duty = d.data.duty;
+        tasksData[idx].responsibility = d.data.responsibility;
+      }
+      renderTaskSummary();
+      renderTaskCards();
+    } else {
+      alert(d.error || '保存失败');
+    }
+  } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+function clearTaskFields(userId) {
+  document.getElementById('zeren_'+userId).value = '';
+  document.getElementById('duty_'+userId).value = '';
+  document.getElementById('responsibility_'+userId).value = '';
+}
+
+async function saveAllTasks() {
+  const admins = tasksData.filter(u => u.role === 'admin');
+  const assignments = admins.map(u => {
+    const zerenEl = document.getElementById('zeren_'+u.id);
+    const dutyEl = document.getElementById('duty_'+u.id);
+    const respEl = document.getElementById('responsibility_'+u.id);
+    return {
+      userId: u.id,
+      zeren: zerenEl ? (parseInt(zerenEl.value) || null) : u.zeren,
+      duty: dutyEl ? dutyEl.value.trim() : (u.duty||''),
+      responsibility: respEl ? respEl.value.trim() : (u.responsibility||'')
+    };
+  });
+  
+  try {
+    const r = await fetch('/api/admin/tasks/assign-batch', {
+      method:'PUT', headers:{'Content-Type':'application/json','X-Auth-Token':token},
+      body: JSON.stringify({ assignments })
+    });
+    const d = await r.json();
+    if (d.success) {
+      alert(d.message);
+      loadTasks();
+    } else {
+      alert(d.error || '批量保存失败');
+    }
+  } catch(e) { alert('批量保存失败: ' + e.message); }
+}
+
+// ---- 启动 ----
+(function() {
+  const savedToken = localStorage.getItem('authToken');
+  const savedRole = localStorage.getItem('authRole');
+  const savedUser = localStorage.getItem('authUsername');
+  if (savedToken && (savedRole === 'admin' || savedRole === 'super_admin')) {
+    token = savedToken; role = savedRole; username = savedUser;
+    fetch('/api/auth/me', { headers:{'X-Auth-Token':token} })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && (d.role === 'admin' || d.role === 'super_admin')) {
+          document.getElementById('appContent').style.display = 'block';
+          const roleLabel = d.role === 'super_admin' ? '超级管理员' : '管理员';
+          document.getElementById('userBadge').textContent = `👤 ${username} · ${roleLabel}`;
+          init();
+        } else {
+          localStorage.clear();
+          location.href = 'login.html?redirect=admin.html';
+        }
+      }).catch(() => {
+        location.href = 'login.html?redirect=admin.html';
+      });
+  } else {
+    location.href = 'login.html?redirect=admin.html';
+  }
+})();
+</script>
+</body>
+</html>
