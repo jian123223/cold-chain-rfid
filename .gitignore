@@ -24,3 +24,7 @@ Desktop.ini
 # Secrets
 .env
 *.key
+# Database
+*.db
+*.db-shm
+*.db-wal
